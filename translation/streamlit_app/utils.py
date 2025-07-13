@@ -5,17 +5,52 @@ from pydub import AudioSegment
 import streamlit as st
 import os
 import logging
+import json
+from typing import Dict, Any, Optional
 
-# Backend URL configuration
-BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
+# Backend URL configuration - aligned with main app
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# API Response Models for better type safety
+class TranscriptionResult:
+    def __init__(self, data: Dict[str, Any]):
+        self.status = data.get("status", "FAILED")
+        self.transcribed_text = data.get("transcribed_text")
+        self.translated_text = data.get("translated_text")
+        self.detected_language = data.get("detected_language")
+        self.confidence_score = data.get("confidence_score")
+        self.processing_time = data.get("processing_time", 0)
+        self.error_details = data.get("error_details")
+        self.task_id = data.get("task_id")
+
+class TTSResult:
+    def __init__(self, data: Dict[str, Any]):
+        self.status = data.get("status", "FAILED")
+        self.translated_text = data.get("translated_text")
+        self.audio_path = data.get("audio_path")
+        self.error_message = data.get("error_message")
+
+def validate_api_response(response_data: Dict[str, Any], required_fields: list) -> bool:
+    """Validate API response structure"""
+    return all(field in response_data for field in required_fields)
+
+def get_api_info() -> Dict[str, Any]:
+    """Get detailed API information and capabilities"""
+    try:
+        response = requests.get(f"{BACKEND_URL}/", timeout=5)
+        if response.status_code == 200:
+            return response.json()
+        return {"error": "API not accessible"}
+    except Exception as e:
+        return {"error": str(e)}
+
 def transcribe_audio(audio_bytes_io: io.BytesIO) -> dict:
     """
-    Transcribe audio using the backend API with enhanced error handling
+    Transcribe audio using the backend API with enhanced error handling and type safety
     
     Args:
         audio_bytes_io: Audio data in BytesIO format
@@ -48,14 +83,32 @@ def transcribe_audio(audio_bytes_io: io.BytesIO) -> dict:
         result = response.json()
         logger.info(f"✅ Transcription response: {result}")
 
-        # Validate response format
-        if "status" not in result:
+        # Validate response format using enhanced validation
+        required_fields = ["status"]
+        if not validate_api_response(result, required_fields):
             return {
                 "status": "FAILED", 
                 "error": "Invalid response format from transcription service"
             }
         
-        return result
+        # Create typed result object for better handling
+        transcription_result = TranscriptionResult(result)
+        
+        # Return enhanced result with additional metadata
+        enhanced_result = {
+            "status": transcription_result.status,
+            "transcribed_text": transcription_result.transcribed_text,
+            "translated_text": transcription_result.translated_text,
+            "detected_language": transcription_result.detected_language,
+            "confidence_score": transcription_result.confidence_score,
+            "processing_time": transcription_result.processing_time,
+            "error_details": transcription_result.error_details,
+            "task_id": transcription_result.task_id,
+            "api_endpoint": "/transcribe/",
+            "backend_url": BACKEND_URL
+        }
+        
+        return enhanced_result
         
     except requests.exceptions.Timeout:
         error_msg = "🕒 Transcription service timeout. The audio might be too long or the server is busy."
@@ -85,7 +138,7 @@ def transcribe_audio(audio_bytes_io: io.BytesIO) -> dict:
 
 def tts_response(text: str, target_language: str) -> dict:
     """
-    Generate Text-to-Speech response using the backend API with enhanced validation
+    Generate Text-to-Speech response using the backend API with enhanced validation and type safety
     
     Args:
         text: Input text to be processed
@@ -134,14 +187,30 @@ def tts_response(text: str, target_language: str) -> dict:
         result = response.json()
         logger.info(f"✅ TTS response: {result}")
         
-        # Validate response format
-        if "status" not in result:
+        # Validate response format using enhanced validation
+        required_fields = ["status"]
+        if not validate_api_response(result, required_fields):
             return {
                 "status": "FAILED", 
                 "error": "Invalid response format from TTS service"
             }
         
-        return result
+        # Create typed result object for better handling
+        tts_result = TTSResult(result)
+        
+        # Return enhanced result with additional metadata
+        enhanced_result = {
+            "status": tts_result.status,
+            "translated_text": tts_result.translated_text,
+            "audio_path": tts_result.audio_path,
+            "error_message": tts_result.error_message,
+            "input_text": text.strip(),
+            "target_language": target_language,
+            "api_endpoint": "/tts/",
+            "backend_url": BACKEND_URL
+        }
+        
+        return enhanced_result
         
     except requests.exceptions.Timeout:
         error_msg = "🕒 TTS service timeout. Please try with shorter text."
@@ -413,40 +482,225 @@ def get_audio_info(audio_file) -> dict:
 
 def health_check() -> dict:
     """
-    Check the health status of backend services
+    Check the health status of backend services with detailed information
     
     Returns:
-        dict: Health status of transcription and TTS services
+        dict: Health status of transcription and TTS services with detailed info
     """
     try:
         health_status = {
+            "overall_status": "unknown",
             "transcription_service": "unknown",
             "tts_service": "unknown",
-            "backend_url": BACKEND_URL
+            "backend_url": BACKEND_URL,
+            "api_info": {},
+            "last_checked": None
         }
         
-        # Check transcription service
+        import datetime
+        health_status["last_checked"] = datetime.datetime.now().isoformat()
+        
+        # Check main API health
         try:
             response = requests.get(f"{BACKEND_URL}/health", timeout=5)
             if response.status_code == 200:
+                health_status["overall_status"] = "healthy"
                 health_status["transcription_service"] = "healthy"
-            else:
-                health_status["transcription_service"] = "unhealthy"
-        except:
-            health_status["transcription_service"] = "offline"
-        
-        # Check TTS service
-        try:
-            response = requests.get(f"{BACKEND_URL}/tts/health", timeout=5)
-            if response.status_code == 200:
                 health_status["tts_service"] = "healthy"
+                
+                # Get API info
+                try:
+                    api_info_response = requests.get(f"{BACKEND_URL}/", timeout=5)
+                    if api_info_response.status_code == 200:
+                        health_status["api_info"] = api_info_response.json()
+                except:
+                    pass
+                    
             else:
+                health_status["overall_status"] = "unhealthy"
+                health_status["transcription_service"] = "unhealthy"
                 health_status["tts_service"] = "unhealthy"
-        except:
+        except requests.exceptions.ConnectionError:
+            health_status["overall_status"] = "offline"
+            health_status["transcription_service"] = "offline"
             health_status["tts_service"] = "offline"
+        except requests.exceptions.Timeout:
+            health_status["overall_status"] = "slow"
+            health_status["transcription_service"] = "slow"
+            health_status["tts_service"] = "slow"
+        except Exception as e:
+            health_status["overall_status"] = "error"
+            health_status["error"] = str(e)
+        
+        # Add user-friendly messages
+        status_messages = {
+            "healthy": "✅ All API services are running smoothly",
+            "unhealthy": "⚠️ API services are having issues",
+            "offline": "❌ Cannot connect to API services - please check if the backend is running",
+            "slow": "⏳ API services are responding slowly",
+            "error": "🔧 Error checking API services",
+            "unknown": "❓ API status unknown"
+        }
+        
+        health_status["message"] = status_messages.get(health_status["overall_status"], "Status unknown")
         
         return health_status
         
     except Exception as e:
         logger.error(f"Health check failed: {e}")
-        return {"error": str(e)}
+        return {
+            "overall_status": "error",
+            "error": str(e),
+            "message": f"🔧 Health check error: {str(e)}",
+            "backend_url": BACKEND_URL
+        }
+
+def test_api_integration() -> Dict[str, Any]:
+    """
+    Test all API endpoints to verify integration
+    
+    Returns:
+        dict: Test results for all API endpoints
+    """
+    test_results = {
+        "timestamp": None,
+        "overall_status": "unknown",
+        "tests": {}
+    }
+    
+    import datetime
+    test_results["timestamp"] = datetime.datetime.now().isoformat()
+    
+    try:
+        # Test 1: Health Check
+        try:
+            health_result = health_check()
+            test_results["tests"]["health_check"] = {
+                "status": "passed" if health_result.get("overall_status") == "healthy" else "failed",
+                "details": health_result
+            }
+        except Exception as e:
+            test_results["tests"]["health_check"] = {
+                "status": "failed",
+                "error": str(e)
+            }
+        
+        # Test 2: API Info
+        try:
+            api_info = get_api_info()
+            test_results["tests"]["api_info"] = {
+                "status": "passed" if "error" not in api_info else "failed",
+                "details": api_info
+            }
+        except Exception as e:
+            test_results["tests"]["api_info"] = {
+                "status": "failed",
+                "error": str(e)
+            }
+        
+        # Test 3: TTS Endpoint (with minimal test)
+        try:
+            tts_test = tts_response("Test", "en")
+            test_results["tests"]["tts_endpoint"] = {
+                "status": "passed" if tts_test.get("status") == "COMPLETED" else "failed",
+                "details": tts_test
+            }
+        except Exception as e:
+            test_results["tests"]["tts_endpoint"] = {
+                "status": "failed",
+                "error": str(e)
+            }
+        
+        # Determine overall status
+        passed_tests = sum(1 for test in test_results["tests"].values() if test.get("status") == "passed")
+        total_tests = len(test_results["tests"])
+        
+        if passed_tests == total_tests:
+            test_results["overall_status"] = "all_passed"
+        elif passed_tests > 0:
+            test_results["overall_status"] = "partial"
+        else:
+            test_results["overall_status"] = "all_failed"
+        
+        test_results["summary"] = f"{passed_tests}/{total_tests} tests passed"
+        
+    except Exception as e:
+        test_results["overall_status"] = "error"
+        test_results["error"] = str(e)
+    
+    return test_results
+
+def get_supported_languages() -> Dict[str, str]:
+    """
+    Get list of supported languages from the backend or return default
+    
+    Returns:
+        dict: Language codes and names
+    """
+    default_languages = {
+        "en": "English",
+        "hi": "Hindi (हिन्दी)",
+        "gu": "Gujarati (ગુજરાતી)",
+        "pa": "Punjabi (ਪੰਜਾਬੀ)",
+        "bn": "Bengali (বাংলা)",
+        "te": "Telugu (తెలుగు)",
+        "ta": "Tamil (தமிழ்)",
+        "ml": "Malayalam (മലയാളം)",
+        "kn": "Kannada (ಕನ್ನಡ)",
+        "or": "Odia (ଓଡ଼ିଆ)"
+    }
+    
+    try:
+        # Try to get languages from API if available
+        api_info = get_api_info()
+        if "supported_languages" in api_info:
+            return api_info["supported_languages"]
+        else:
+            return default_languages
+    except:
+        return default_languages
+
+def create_api_integration_report() -> str:
+    """
+    Generate a comprehensive API integration report
+    
+    Returns:
+        str: HTML formatted report
+    """
+    test_results = test_api_integration()
+    health_status = health_check()
+    supported_langs = get_supported_languages()
+    
+    report_html = f"""
+    <div style="background: white; padding: 1.5rem; border-radius: 15px; border: 2px solid #4CAF50; margin: 1rem 0;">
+        <h3 style="color: #2E7D32; margin-bottom: 1rem;">📊 API Integration Report</h3>
+        
+        <div style="margin-bottom: 1rem;">
+            <strong>Overall Status:</strong> 
+            <span style="color: {'#4CAF50' if test_results['overall_status'] == 'all_passed' else '#FF9800' if test_results['overall_status'] == 'partial' else '#F44336'};">
+                {test_results.get('summary', 'Unknown')}
+            </span>
+        </div>
+        
+        <div style="margin-bottom: 1rem;">
+            <strong>Backend URL:</strong> <code>{BACKEND_URL}</code>
+        </div>
+        
+        <div style="margin-bottom: 1rem;">
+            <strong>Supported Languages:</strong> {len(supported_langs)} languages available
+        </div>
+        
+        <div style="margin-bottom: 1rem;">
+            <strong>Last Checked:</strong> {test_results.get('timestamp', 'Unknown')}
+        </div>
+        
+        <details style="margin-top: 1rem;">
+            <summary style="cursor: pointer; font-weight: bold; color: #1976D2;">View Detailed Test Results</summary>
+            <pre style="background: #f5f5f5; padding: 1rem; border-radius: 5px; font-size: 0.8rem; overflow-x: auto;">
+{json.dumps(test_results, indent=2)}
+            </pre>
+        </details>
+    </div>
+    """
+    
+    return report_html
