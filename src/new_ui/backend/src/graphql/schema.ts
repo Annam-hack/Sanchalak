@@ -15,18 +15,9 @@ export const typeDefs = gql`
     error_message: String
   }
 
-  type TranslationResult {
-    status: String!
-    translated_text: String
-    detected_language: String
-    error_message: String
-  }
-
   type Mutation {
     transcribeAudio(file: Upload!): AudioTranscriptionResult!
     generateSpeech(text: String!, targetLanguage: String!): SpeechGenerationResult!
-    translateText(text: String!, targetLanguage: String!, sourceLanguage: String): TranslationResult!
-    detectLanguage(text: String!): TranslationResult!
   }
 
   type Query {

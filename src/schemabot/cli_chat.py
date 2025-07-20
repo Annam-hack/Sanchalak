@@ -12,6 +12,34 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from core.conversation.langgraph_engine import SimpleLangGraphEngine, ExtractedField, ConversationStage
+import aiohttp
+
+async def perform_eligibility_check(farmer_id: str) -> dict:
+    """Perform eligibility check using the scheme server endpoint"""
+    try:
+        async with aiohttp.ClientSession() as session:
+            # Call the scheme server eligibility endpoint
+            url = f"http://localhost:8002/eligibility/pm-kisan/{farmer_id}"
+            
+            async with session.post(url) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    return {
+                        "success": True,
+                        "data": result.get("data", {}),
+                        "message": "Eligibility check completed successfully"
+                    }
+                else:
+                    error_text = await response.text()
+                    return {
+                        "success": False,
+                        "message": f"Eligibility check failed with status {response.status}: {error_text}"
+                    }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Eligibility check error: {str(e)}"
+        }
 
 async def main():
     """CLI chat interface for PM-KISAN application"""
@@ -169,6 +197,69 @@ async def main():
                 if state.debug_log:
                     latest_debug = state.debug_log[-1]
                     print(f"🔧 Debug: {latest_debug}")
+                
+                # If application is complete, handle upload and eligibility check
+                if state.stage == ConversationStage.COMPLETED:
+                    print("\n🔄 **Processing Complete Application...**")
+                    
+                    try:
+                        # Extract JSON data from the response
+                        import json
+                        import re
+                        
+                        # Find JSON data in the response
+                        json_match = re.search(r'```json\s*(\{.*?\})\s*```', response, re.DOTALL)
+                        if json_match:
+                            farmer_data = json.loads(json_match.group(1))
+                            
+                            print("📤 **Uploading to EFR Database...**")
+                            # Upload to EFR database
+                            upload_result = await engine.upload_to_efr_database(state)
+                            
+                            if upload_result.get("success"):
+                                farmer_id = upload_result.get("farmer_id")
+                                print(f"✅ **EFR Upload Successful!** Farmer ID: {farmer_id}")
+                                
+                                # Trigger eligibility check using scheme server
+                                print("🔍 **Performing Eligibility Check...**")
+                                eligibility_result = await perform_eligibility_check(farmer_id)
+                                
+                                if eligibility_result.get("success"):
+                                    print("✅ **Eligibility Check Complete!**")
+                                    eligibility_data = eligibility_result.get("data", {})
+                                    
+                                    print(f"\n📋 **Eligibility Results:**")
+                                    print(f"• Eligible: {eligibility_data.get('eligible', 'Unknown')}")
+                                    print(f"• Score: {eligibility_data.get('score', 'N/A')}")
+                                    print(f"• Reasons: {eligibility_data.get('reasons', [])}")
+                                    
+                                    if eligibility_data.get('eligible'):
+                                        print(f"\n🎉 **Congratulations! You are eligible for PM-KISAN benefits.**")
+                                    else:
+                                        print(f"\n❌ **Sorry, you are not eligible for PM-KISAN benefits.**")
+                                        print(f"Reasons: {', '.join(eligibility_data.get('reasons', []))}")
+                                else:
+                                    print(f"❌ **Eligibility Check Failed:** {eligibility_result.get('message', 'Unknown error')}")
+                            else:
+                                print(f"❌ **EFR Upload Failed:** {upload_result.get('message', 'Unknown error')}")
+                        else:
+                            print("❌ **Could not extract application data from response**")
+                            print("📋 **Raw Response:**")
+                            print(response)
+                            print("\n🔍 **Attempting to extract data from state...**")
+                            # Try to get data directly from state
+                            try:
+                                farmer_data = engine.convert_to_efr_farmer_data(state)
+                                print("✅ **Data extracted from state:**")
+                                print(json.dumps(farmer_data, indent=2, default=str))
+                            except Exception as e:
+                                print(f"❌ **State extraction also failed:** {str(e)}")
+                            
+                    except Exception as e:
+                        print(f"❌ **Processing Error:** {str(e)}")
+                    
+                    print("\n🎉 **Application processing complete!**")
+                    break
                 
             except KeyboardInterrupt:
                 print("\n\n👋 Goodbye! Thank you for using PM-KISAN Assistant.")

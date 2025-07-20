@@ -19,6 +19,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Form, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
@@ -51,7 +52,7 @@ db = client[DATABASE_NAME]
 collection = db[COLLECTION_NAME]
 
 # API key for admin endpoints
-API_KEY = os.getenv("SCHEME_API_KEY", "supersecretkey")
+API_KEY = os.getenv("SCHEME_API_KEY", "thisisourhardworkpleasedontcopy")
 TRUSTED_ORIGINS = ["http://localhost", "http://127.0.0.1", "http://localhost:3000", "http://localhost:8001", "http://localhost:8002", "http://localhost:8003"]
 
 @asynccontextmanager
@@ -743,8 +744,277 @@ async def service_info():
         "docs": {
             "swagger_ui": "/docs",
             "openapi_json": "/openapi.json"
+        },
+        "endpoints": {
+            "health": "/health",
+            "schemes": "/schemes",
+            "upload": "/upload",
+            "eligibility": "/eligibility/check",
+            "eligibility_raw": "/eligibility/check/raw",
+            "eligibility_form": "/eligibility/form"
         }
     }
+
+@app.get("/eligibility/form", response_class=HTMLResponse)
+async def eligibility_form():
+    """HTML form for eligibility checking"""
+    html_content = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>PM-KISAN Eligibility Checker</title>
+        <style>
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+            }
+            .container {
+                background: white;
+                padding: 30px;
+                border-radius: 15px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            }
+            h1 {
+                color: #333;
+                text-align: center;
+                margin-bottom: 30px;
+                font-size: 2.5em;
+            }
+            .form-group {
+                margin-bottom: 20px;
+            }
+            label {
+                display: block;
+                margin-bottom: 8px;
+                font-weight: bold;
+                color: #555;
+            }
+            input[type="text"], select {
+                width: 100%;
+                padding: 12px;
+                border: 2px solid #ddd;
+                border-radius: 8px;
+                font-size: 16px;
+                transition: border-color 0.3s;
+            }
+            input[type="text"]:focus, select:focus {
+                outline: none;
+                border-color: #667eea;
+            }
+            button {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 15px 30px;
+                border: none;
+                border-radius: 8px;
+                font-size: 16px;
+                cursor: pointer;
+                width: 100%;
+                transition: transform 0.2s;
+            }
+            button:hover {
+                transform: translateY(-2px);
+            }
+            button:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+                transform: none;
+            }
+            .result {
+                margin-top: 30px;
+                padding: 20px;
+                border-radius: 8px;
+                display: none;
+            }
+            .result.success {
+                background: #d4edda;
+                border: 1px solid #c3e6cb;
+                color: #155724;
+            }
+            .result.error {
+                background: #f8d7da;
+                border: 1px solid #f5c6cb;
+                color: #721c24;
+            }
+            .result.info {
+                background: #d1ecf1;
+                border: 1px solid #bee5eb;
+                color: #0c5460;
+            }
+            .loading {
+                text-align: center;
+                color: #666;
+                font-style: italic;
+            }
+            .farmer-info {
+                background: #f8f9fa;
+                padding: 15px;
+                border-radius: 8px;
+                margin-top: 15px;
+                border-left: 4px solid #667eea;
+            }
+            .eligibility-status {
+                font-size: 1.2em;
+                font-weight: bold;
+                margin: 10px 0;
+            }
+            .eligible {
+                color: #28a745;
+            }
+            .not-eligible {
+                color: #dc3545;
+            }
+            .raw-output {
+                background: #f8f9fa;
+                border: 1px solid #dee2e6;
+                border-radius: 5px;
+                padding: 15px;
+                margin-top: 15px;
+                font-family: 'Courier New', monospace;
+                font-size: 12px;
+                white-space: pre-wrap;
+                max-height: 400px;
+                overflow-y: auto;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🌾 PM-KISAN Eligibility Checker</h1>
+            
+            <form id="eligibilityForm">
+                <div class="form-group">
+                    <label for="farmerId">Farmer ID:</label>
+                    <input type="text" id="farmerId" name="farmerId" placeholder="Enter Farmer ID (e.g., FARMER001)" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="outputType">Output Type:</label>
+                    <select id="outputType" name="outputType">
+                        <option value="clean">Clean Output</option>
+                        <option value="raw">Raw Output</option>
+                    </select>
+                </div>
+                
+                <button type="submit" id="submitBtn">🔍 Check Eligibility</button>
+            </form>
+            
+            <div id="result" class="result"></div>
+        </div>
+
+        <script>
+            document.getElementById('eligibilityForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const farmerId = document.getElementById('farmerId').value;
+                const outputType = document.getElementById('outputType').value;
+                const submitBtn = document.getElementById('submitBtn');
+                const resultDiv = document.getElementById('result');
+                
+                // Show loading
+                submitBtn.disabled = true;
+                submitBtn.textContent = '⏳ Checking...';
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result info';
+                resultDiv.innerHTML = '<div class="loading">Checking eligibility...</div>';
+                
+                try {
+                    const endpoint = outputType === 'raw' ? '/eligibility/check/raw' : '/eligibility/check';
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            scheme_id: 'pm-kisan',
+                            farmer_id: farmerId
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        resultDiv.className = 'result success';
+                        
+                        if (outputType === 'raw') {
+                            // Display raw output with detailed analysis
+                            resultDiv.innerHTML = `
+                                <h3>📊 Raw Eligibility Analysis</h3>
+                                <div class="farmer-info">
+                                    <strong>Farmer ID:</strong> ${data.farmer_id}<br>
+                                    <strong>Scheme:</strong> ${data.scheme_id}<br>
+                                    <strong>Timestamp:</strong> ${new Date(data.timestamp).toLocaleString()}<br>
+                                    <strong>Checker Used:</strong> ${data.checker_used}
+                                </div>
+                                <div class="eligibility-status ${data.raw_output.eligible ? 'eligible' : 'not-eligible'}">
+                                    Status: ${data.raw_output.eligible ? '✅ ELIGIBLE' : '❌ NOT ELIGIBLE'}
+                                </div>
+                                <div class="farmer-info">
+                                    <strong>JSON Output:</strong>
+                                </div>
+                                <div class="raw-output">${JSON.stringify(data.raw_output, null, 2)}</div>
+                                <div class="farmer-info">
+                                    <strong>Detailed Analysis (Complete PM-KISAN Checker Output):</strong>
+                                </div>
+                                <div class="raw-output">${data.detailed_analysis || 'No detailed analysis available'}</div>
+                            `;
+                        } else {
+                            // Display clean output
+                            resultDiv.innerHTML = `
+                                <h3>📊 Eligibility Analysis</h3>
+                                <div class="farmer-info">
+                                    <strong>Farmer ID:</strong> ${data.farmer_id}<br>
+                                    <strong>Farmer Name:</strong> ${data.details.farmer_name || 'N/A'}<br>
+                                    <strong>Scheme:</strong> ${data.scheme_id}<br>
+                                    <strong>Confidence Score:</strong> ${(data.confidence_score * 100).toFixed(1)}%
+                                </div>
+                                <div class="eligibility-status ${data.is_eligible ? 'eligible' : 'not-eligible'}">
+                                    Status: ${data.is_eligible ? '✅ ELIGIBLE' : '❌ NOT ELIGIBLE'}
+                                </div>
+                                <div class="farmer-info">
+                                    <strong>Explanation:</strong><br>
+                                    ${data.explanation}
+                                </div>
+                                <div class="farmer-info">
+                                    <strong>Analysis Summary:</strong><br>
+                                    ${data.details.analysis_summary}
+                                </div>
+                                <div class="farmer-info">
+                                    <strong>Facts Generated:</strong> ${data.details.facts_generated}
+                                </div>
+                            `;
+                        }
+                    } else {
+                        resultDiv.className = 'result error';
+                        resultDiv.innerHTML = `
+                            <h3>❌ Error</h3>
+                            <p><strong>Status:</strong> ${response.status}</p>
+                            <p><strong>Message:</strong> ${data.detail || data.message || 'Unknown error'}</p>
+                        `;
+                    }
+                } catch (error) {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `
+                        <h3>❌ Network Error</h3>
+                        <p>Failed to connect to the server. Please check if the server is running.</p>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                    `;
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '🔍 Check Eligibility';
+                }
+            });
+        </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
 
 @app.get("/schemes/{scheme_code}/eligibility-rules")
 async def get_eligibility_rules(scheme_code: str):
@@ -834,6 +1104,64 @@ async def check_eligibility(request: EligibilityRequest):
         }
         
             return cleaned_result
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Scheme '{request.scheme_id}' not supported for eligibility checking"
+            )
+        
+    except ImportError as e:
+        logger.error(f"Failed to import scheme checker: {e}")
+        raise HTTPException(
+            status_code=503, 
+            detail=f"Scheme checker for '{request.scheme_id}' not available."
+        )
+    except Exception as e:
+        logger.error(f"Error checking eligibility: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to check eligibility: {str(e)}")
+
+@app.post("/eligibility/check/raw", response_model=Dict[str, Any])
+async def check_eligibility_raw(request: EligibilityRequest):
+    """Check eligibility for a specific scheme and return raw output with all detailed analysis"""
+    try:
+        # Route to appropriate scheme checker based on scheme_id
+        if request.scheme_id.lower() == "pm-kisan":
+            # Import the PM-KISAN checker
+            from schemes.pm_kisan import PMKisanChecker
+            import io
+            import sys
+            
+            # Initialize the checker
+            checker = PMKisanChecker()
+            
+            # Capture all stdout output from the detailed analysis
+            old_stdout = sys.stdout
+            captured_output = io.StringIO()
+            sys.stdout = captured_output
+            
+            try:
+                # Check eligibility using the farmer ID - this will print all detailed analysis
+                result = checker.check_farmer(request.farmer_id)
+                
+                # Get all the captured output
+                detailed_analysis = captured_output.getvalue()
+                
+            finally:
+                # Restore stdout
+                sys.stdout = old_stdout
+            
+            # Return raw result with complete detailed analysis
+            raw_result = {
+                "success": True,
+                "scheme_id": request.scheme_id,
+                "farmer_id": request.farmer_id,
+                "raw_output": result,
+                "detailed_analysis": detailed_analysis,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "checker_used": "PMKisanChecker"
+            }
+        
+            return raw_result
         else:
             raise HTTPException(
                 status_code=404,

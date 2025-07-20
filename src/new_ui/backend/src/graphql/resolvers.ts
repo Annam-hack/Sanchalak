@@ -1,11 +1,10 @@
 import { transcribeAudioFile } from '../services/transcriber';
 import { generateSpeechFile } from '../services/azure';
-import { translateText, detectLanguage } from '../services/translator';
-import { logger } from '../services/logger';
 import { Upload } from 'graphql-upload';
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { logger } from '../services/logger';
 
 interface UploadFile {
   filename: string;
@@ -103,73 +102,6 @@ export const resolvers = {
         return {
           status: 'error',
           error_message: `Speech generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-        };
-      }
-    },
-
-    translateText: async (_: any, { text, targetLanguage, sourceLanguage }: { text: string; targetLanguage: string; sourceLanguage?: string }) => {
-      try {
-        logger.info(`Starting text translation: ${sourceLanguage || 'auto'} -> ${targetLanguage}`);
-        logger.debug(`Text length: ${text.length} characters`);
-
-        if (!text.trim()) {
-          logger.warn('Empty text provided for translation');
-          return {
-            status: 'error',
-            error_message: 'Text cannot be empty'
-          };
-        }
-
-        let detectedSourceLanguage = sourceLanguage;
-        if (!sourceLanguage) {
-          logger.debug('Detecting source language...');
-          const detectionResult = await detectLanguage(text);
-          if (detectionResult.status !== 'success') {
-            logger.warn('Language detection failed');
-            return {
-              status: 'error',
-              error_message: 'Could not detect source language'
-            };
-          }
-          detectedSourceLanguage = detectionResult.detected_language;
-          logger.info(`Detected source language: ${detectedSourceLanguage}`);
-        }
-
-        const result = await translateText(text, targetLanguage, detectedSourceLanguage);
-        logger.info(`Translation completed with status: ${result.status}`);
-        return result;
-
-      } catch (error) {
-        logger.error('Translation error:', error);
-        return {
-          status: 'error',
-          error_message: `Translation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-        };
-      }
-    },
-
-    detectLanguage: async (_: any, { text }: { text: string }) => {
-      try {
-        logger.info('Starting language detection...');
-        logger.debug(`Text length: ${text.length} characters`);
-
-        if (!text.trim()) {
-          logger.warn('Empty text provided for language detection');
-          return {
-            status: 'error',
-            error_message: 'Text cannot be empty'
-          };
-        }
-
-        const result = await detectLanguage(text);
-        logger.info(`Language detection completed with status: ${result.status}`);
-        return result;
-
-      } catch (error) {
-        logger.error('Language detection error:', error);
-        return {
-          status: 'error',
-          error_message: `Language detection failed: ${error instanceof Error ? error.message : 'Unknown error'}`
         };
       }
     }

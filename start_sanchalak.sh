@@ -65,9 +65,16 @@ cleanup() {
     kill_port 8003  # Schemabot GraphQL
     kill_port 3001  # New UI Backend
     kill_port 3000  # New UI Frontend
+    
+    # Clean up PID files
+    rm -f logs/*.pid 2>/dev/null || true
+    
     print_status "✅ All services stopped" $GREEN
     exit 0
 }
+
+# Store project root directory
+PROJECT_ROOT=$(pwd)
 
 # Set up signal handlers
 trap cleanup SIGINT SIGTERM
@@ -117,24 +124,24 @@ mkdir -p logs
 
 # 1. Start EFR Server (Port 8001)
 print_status "1️⃣  Starting EFR Server (Port 8001)..." $PURPLE
-cd src/efr_server
-uvicorn main:app --host 0.0.0.0 --port 8001 > ../../logs/efr_server.log 2>&1 &
+cd "$PROJECT_ROOT/src/efr_server"
+uvicorn main:app --host 0.0.0.0 --port 8001 > "$PROJECT_ROOT/logs/efr_server.log" 2>&1 &
 EFR_PID=$!
-cd ../..
+cd "$PROJECT_ROOT"
 
 # 2. Start Scheme Server (Port 8002)  
 print_status "2️⃣  Starting Scheme Server (Port 8002)..." $PURPLE
-cd src/scheme_server
-uvicorn scheme_backend:app --host 0.0.0.0 --port 8002 > ../../logs/scheme_server.log 2>&1 &
+cd "$PROJECT_ROOT/src/scheme_server"
+uvicorn scheme_backend:app --host 0.0.0.0 --port 8002 > "$PROJECT_ROOT/logs/scheme_server.log" 2>&1 &
 SCHEME_PID=$!
-cd ../..
+cd "$PROJECT_ROOT"
 
 # 3. Start Schemabot GraphQL Server (Port 8003)
 print_status "3️⃣  Starting Schemabot GraphQL Server (Port 8003)..." $PURPLE
-cd src/schemabot/api
-python graphql_server.py > ../../../logs/schemabot_graphql.log 2>&1 &
+cd "$PROJECT_ROOT/src/schemabot/api"
+python graphql_server.py > "$PROJECT_ROOT/logs/schemabot_graphql.log" 2>&1 &
 SCHEMABOT_PID=$!
-cd ../../..
+cd "$PROJECT_ROOT"
 
 # Wait for backend servers to be ready
 echo ""
@@ -144,34 +151,30 @@ wait_for_server "http://localhost:8003" "Schemabot GraphQL Server"
 
 # 4. Start New UI Backend (Port 3001)
 print_status "4️⃣  Starting New UI Backend (Port 3001)..." $PURPLE
-cd src/new_ui/backend
+cd "$PROJECT_ROOT/src/new_ui/backend"
 if [ ! -d "node_modules" ]; then
     print_status "📦 Installing new UI backend dependencies..." $YELLOW
-    npm install > ../../../logs/new_ui_backend_install.log 2>&1
+    npm install > "$PROJECT_ROOT/logs/new_ui_backend_install.log" 2>&1
 fi
-npm run dev > ../../../logs/new_ui_backend.log 2>&1 &
+npm run dev > "$PROJECT_ROOT/logs/new_ui_backend.log" 2>&1 &
 NEW_UI_BACKEND_PID=$!
-cd ../../..
+cd "$PROJECT_ROOT"
 
 wait_for_server "http://localhost:3001" "New UI Backend"
 
 # 5. Start New UI Frontend (Port 3000)
 print_status "5️⃣  Starting New UI Frontend (Port 3000)..." $PURPLE
-cd src/new_ui
+cd "$PROJECT_ROOT/src/new_ui"
 if [ ! -d "node_modules" ]; then
     print_status "📦 Installing new UI frontend dependencies..." $YELLOW
-    npm install > ../../logs/new_ui_frontend_install.log 2>&1
+    npm install > "$PROJECT_ROOT/logs/new_ui_frontend_install.log" 2>&1
 fi
-
-# Fix Next.js binary permissions
-print_status "🔧 Fixing Next.js binary permissions..." $YELLOW
-chmod +x node_modules/.bin/next 2>/dev/null || true
-
-npm run dev > ../../logs/new_ui_frontend.log 2>&1 &
+npm run dev > "$PROJECT_ROOT/logs/new_ui_frontend.log" 2>&1 &
 NEW_UI_FRONTEND_PID=$!
-cd ../..
+cd "$PROJECT_ROOT"
 
-sleep 5
+# Wait for frontend to be ready
+wait_for_server "http://localhost:3000" "New UI Frontend"
 
 echo ""
 print_status "🎉 SANCHALAK IS READY! (with new UI)" $GREEN

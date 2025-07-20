@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useMutation, useSubscription, ApolloProvider } from '@apollo/client';
-import { ChatMessage, Language, ConversationProgress } from '@/types';
+import { ChatMessage, Language } from '@/types';
 import { SUPPORTED_LANGUAGES, getTranslation } from '@/lib/constants';
 import { 
   TRANSCRIBE_AUDIO, 
@@ -22,62 +22,25 @@ function SanchalakApp() {
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [conversationStarted, setConversationStarted] = useState(false);
-  const [progress, setProgress] = useState<ConversationProgress | undefined>();
 
   const [transcribeAudio] = useMutation(TRANSCRIBE_AUDIO);
   const [generateSpeech] = useMutation(GENERATE_SPEECH);
   const [startConversation] = useMutation(START_CONVERSATION);
   const [sendMessage] = useMutation(SEND_MESSAGE);
 
-  // Simple translation function (in production, use a proper translation service)
-  const translateMessage = (message: string, fromLang: string, toLang: string) => {
-    // For now, return the original message
-    // In production, integrate with Google Translate, Azure Translator, or similar
-    if (fromLang === toLang) return message;
-    
-    // Simple keyword translations for common phrases
-    const translations: Record<string, Record<string, string>> = {
-      'name': {
-        'hi': 'नाम',
-        'gu': 'નામ',
-        'bn': 'নাম',
-        'ta': 'பெயர்',
-        'te': 'పేరు',
-        'ml': 'പേര്',
-        'kn': 'ಹೆಸರು',
-        'or': 'ନାମ',
-        'pa': 'ਨਾਮ'
-      },
-      'age': {
-        'hi': 'उम्र',
-        'gu': 'ઉંમર',
-        'bn': 'বয়স',
-        'ta': 'வயது',
-        'te': 'వయస్సు',
-        'ml': 'വയസ്സ്',
-        'kn': 'ವಯಸ್ಸು',
-        'or': 'ବୟସ',
-        'pa': 'ਉਮਰ'
+  // Subscribe to real-time messages
+  const { data: subscriptionData } = useSubscription(MESSAGE_STREAM, {
+    variables: { sessionId: sessionId || '' },
+    skip: !sessionId,
+    onData: ({ data }) => {
+      if (data?.data?.messageStream) {
+        const newMessage = data.data.messageStream;
+        addMessage(newMessage.content, 'bot');
       }
-    };
-    
-    // For now, return original message - implement proper translation later
-    return message;
-  };
+    },
+  });
 
-  // Subscribe to real-time messages - DISABLED for now to prevent duplicates
-  // const { data: subscriptionData } = useSubscription(MESSAGE_STREAM, {
-  //   variables: { sessionId: sessionId || '' },
-  //   skip: !sessionId,
-  //   onData: ({ data }) => {
-  //     if (data?.data?.messageStream) {
-  //       const newMessage = data.data.messageStream;
-  //       addMessage(newMessage.content, 'bot');
-  //     }
-  //   },
-  // });
-
-  // Add initial welcome message and start conversation
+  // Add initial welcome message
   const addWelcomeMessage = useCallback(() => {
     const welcomeMessage: ChatMessage = {
       id: 'welcome-' + Date.now(),
@@ -86,11 +49,6 @@ function SanchalakApp() {
       timestamp: new Date(),
     };
     setMessages([welcomeMessage]);
-    
-    // Automatically start conversation after welcome message
-    setTimeout(() => {
-      startNewConversation();
-    }, 500);
   }, [selectedLanguage.code]);
 
   // Initialize with welcome message
@@ -100,10 +58,6 @@ function SanchalakApp() {
 
   const handleLanguageChange = (language: Language) => {
     setSelectedLanguage(language);
-    // Reset conversation when language changes
-    setSessionId(null);
-    setConversationStarted(false);
-    setMessages([]);
     // Update welcome message with new language
     addWelcomeMessage();
   };
@@ -138,35 +92,13 @@ function SanchalakApp() {
         setSessionId(conversation.id);
         setConversationStarted(true);
         
-        // Update progress if available
-        if (conversation.progress) {
-          setProgress(conversation.progress);
+        // Add initial bot message if available
+        if (conversation.messages && conversation.messages.length > 0) {
+          const firstMessage = conversation.messages[0];
+          addMessage(firstMessage.content, 'bot');
+        } else {
+          addMessage('Hello! I\'m here to help you with the PM-KISAN scheme. Let\'s start by collecting some basic information.', 'bot');
         }
-        
-        // Always trigger the first question from LangGraph
-        setTimeout(async () => {
-          try {
-            const { data: responseData } = await sendMessage({
-              variables: {
-                input: {
-                  sessionId: conversation.id,
-                  content: ""
-                }
-              }
-            });
-            
-            if (responseData?.sendMessage) {
-              addMessage(responseData.sendMessage.content, 'bot');
-              // Update progress from response if available
-              if (responseData.sendMessage.progress) {
-                setProgress(responseData.sendMessage.progress);
-              }
-            }
-          } catch (error) {
-            console.error('Error getting first question:', error);
-            addMessage('Hello! I\'m here to help you with your PM-KISAN application. What\'s your name?', 'bot');
-          }
-        }, 100);
         
         console.log('Conversation started:', conversation.id);
       }
@@ -182,16 +114,15 @@ function SanchalakApp() {
     if (!message.trim()) return;
 
     // Start conversation if not already started
-    if (!conversationStarted || !sessionId) {
+    if (!conversationStarted) {
       await startNewConversation();
       // Wait a bit for conversation to start
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Check if session was created successfully
-      if (!sessionId) {
-        addMessage('Error: No active conversation session. Please try again.', 'bot');
-        return;
-      }
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    if (!sessionId) {
+      addMessage('Error: No active conversation session. Please try again.', 'bot');
+      return;
     }
 
     setIsLoading(true);
@@ -212,11 +143,6 @@ function SanchalakApp() {
 
       if (data?.sendMessage) {
         const botResponse = data.sendMessage.content;
-        
-        // Update progress from response if available
-        if (data.sendMessage.progress) {
-          setProgress(data.sendMessage.progress);
-        }
         
         // Generate TTS for bot response
         generateSpeech({
@@ -323,7 +249,6 @@ function SanchalakApp() {
             onSendVoice={handleSendVoice}
             language={selectedLanguage}
             isLoading={isLoading}
-            progress={progress}
           />
         </div>
 

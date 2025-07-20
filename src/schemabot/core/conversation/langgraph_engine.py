@@ -237,6 +237,16 @@ class SimpleLangGraphEngine:
                         exclusion_question = await self._ask_exclusion_question_with_llm(first_exclusion, updated_state)
                         updated_state.response += f"\n\n{exclusion_question}"
             
+            # Check if exclusion stage is complete and should transition to special provisions
+            elif updated_state.stage == ConversationStage.EXCLUSION_CRITERIA:
+                # Check if all exclusions are complete
+                missing_exclusions = [f for f in self.exclusion_fields if f not in updated_state.exclusion_data]
+                if not missing_exclusions:
+                    # Transition to special provisions
+                    updated_state.stage = ConversationStage.SPECIAL_PROVISIONS
+                    # Don't start special provisions flow here - let the next user input trigger it
+                    updated_state.response = "✅ All eligibility questions answered! Moving to special provisions section."
+            
             return updated_state.response if hasattr(updated_state, 'response') else "Sorry, no response generated.", updated_state
                 
         except Exception as e:
@@ -267,8 +277,8 @@ class SimpleLangGraphEngine:
         
         if not missing_exclusions:
             state.response = "✅ All eligibility questions answered! Moving to special provisions section."
-            state.stage = ConversationStage.SPECIAL_PROVISIONS
-            return state
+            # Don't manually set stage - let the graph transition handle it
+            return state.response, state
         
         # If no missing exclusions but we have user input, it might be for conditional fields
         if not missing_exclusions and state.user_input and state.user_input.strip():
@@ -287,13 +297,13 @@ class SimpleLangGraphEngine:
                 missing_exclusions = [f for f in self.exclusion_fields if f not in state.exclusion_data]
                 if not missing_exclusions:
                     state.response += "\n\n✅ All eligibility questions answered! Moving to special provisions section."
-                    state.stage = ConversationStage.SPECIAL_PROVISIONS
+                    # Don't manually set stage - let the graph transition handle it
                 else:
                     # Automatically ask next question
                     next_question = await self._get_next_exclusion_question(state)
                     if next_question:
                         state.response += f"\n\n{next_question}"
-                return state
+                return state.response, state
             
             elif ("is_pensioner" in state.exclusion_data and 
                   state.exclusion_data["is_pensioner"] is True and
@@ -340,15 +350,15 @@ Return only the response, no additional text."""
                 except Exception as e:
                     print(f"⚠️ LLM response failed: {e}")
                     state.response = f"I understand you said '{state.user_input}'. All eligibility questions are complete! Moving to special provisions section."
-                    state.stage = ConversationStage.SPECIAL_PROVISIONS
-                    return state
+                    # Don't manually set stage - let the graph transition handle it
+                    return state.response, state
         
         # Get the first missing exclusion field
         target_field = missing_exclusions[0] if missing_exclusions else None
         
         if not target_field:
             state.response = "✅ All eligibility questions answered! Moving to special provisions section."
-            state.stage = ConversationStage.SPECIAL_PROVISIONS
+            # Don't manually set stage - let the graph transition handle it
             return state.response, state
         
         # Check for conditional follow-up questions
@@ -2210,6 +2220,8 @@ Which region are you from? (You can say the state name or 'regular' for normal s
         """Generate question for certificate information"""
         region_info = self._get_special_region_info(region)
         
+
+        
         if field == "has_special_certificate":
             return f"""📋 **Certificate Requirement for {region_info['name']}**
 
@@ -2532,10 +2544,10 @@ Return only the question, no additional text."""
         if state.user_input and state.user_input.strip():
             # Check for developer commands
             if state.user_input.lower().startswith("/skip"):
-                state.response = "✅ [DEV] Skipped special provisions. Application complete!"
-            state.stage = ConversationStage.COMPLETED
-            return state
-        
+                state.response = "✅ [DEV] Skipped special provisions. Let's review your application!"
+                state.stage = ConversationStage.SUMMARY
+                return state
+            
             # Process user input based on current state
             return await self._process_special_provision_input(state)
         else:
@@ -2614,8 +2626,8 @@ Return only the question, no additional text."""
                 # State doesn't qualify for special provisions
                 state.special_provisions["region_special"] = "none"
                 state.special_provisions["has_special_certificate"] = False
-                state.response = f"Since you're from {user_state}, no special provisions apply to you. Your application is complete!"
-                state.stage = ConversationStage.COMPLETED
+                state.response = f"Since you're from {user_state}, no special provisions apply to you. Let's review your application!"
+                state.stage = ConversationStage.SUMMARY
             
             return state
         
@@ -2643,8 +2655,8 @@ Return only the question, no additional text."""
         else:
             state.special_provisions["region_special"] = "none"
             state.special_provisions["has_special_certificate"] = False
-            state.response = f"Since you're from {user_state}, no special provisions apply to you. Your application is complete!"
-            state.stage = ConversationStage.COMPLETED
+            state.response = f"Since you're from {user_state}, no special provisions apply to you. Let's review your application!"
+            state.stage = ConversationStage.SUMMARY
         
         return state
     
@@ -2674,15 +2686,15 @@ Return only the question, no additional text."""
                 state.special_provisions["has_special_certificate"] = False
                 state.special_provisions["certificate_type"] = "none"
                 region = state.special_provisions.get("region_special")
-                state.response = f"✅ Understood. No special certificates for {region} region. Application complete!"
-                state.stage = ConversationStage.COMPLETED
+                state.response = f"✅ Understood. No special certificates for {region} region. Let's review your application!"
+                state.stage = ConversationStage.SUMMARY
                 return state
             else:
                 # User is saying no to special provisions entirely
                 state.special_provisions["region_special"] = "none"
                 state.special_provisions["has_special_certificate"] = False
-                state.response = "✅ No special provisions apply. Application complete!"
-                state.stage = ConversationStage.COMPLETED
+                state.response = "✅ No special provisions apply. Let's review your application!"
+                state.stage = ConversationStage.SUMMARY
                 return state
         
         # Try to extract special provision information using LLM
@@ -2768,6 +2780,8 @@ Return only the JSON, no additional text:"""
                 extracted_data = json.loads(llm_response)
                 print(f"🔍 DEBUG: Parsed JSON: {extracted_data}")
                 
+
+                
                 # Check if we're processing certificate info or region info
                 if state.special_provisions.get("region_special") and state.special_provisions.get("region_special") != "none":
                     # Processing certificate information
@@ -2790,11 +2804,11 @@ Return only the JSON, no additional text:"""
                     region = state.special_provisions.get("region_special")
                     certificate_type = state.special_provisions.get("certificate_type", "none")
                     if certificate_type != "none":
-                        state.response = f"✅ Special provisions recorded for {region} region with {certificate_type} certificate. Application complete!"
+                        state.response = f"✅ Special provisions recorded for {region} region with {certificate_type} certificate. Let's review your application!"
                     else:
-                        state.response = f"✅ Special provisions recorded for {region} region (no certificates). Application complete!"
+                        state.response = f"✅ Special provisions recorded for {region} region (no certificates). Let's review your application!"
                     
-                    state.stage = ConversationStage.COMPLETED
+                    state.stage = ConversationStage.SUMMARY
                     return state
                     
                 else:
@@ -2838,8 +2852,8 @@ Return only the JSON, no additional text:"""
                             state.response = f"✅ Got your region information. Since you're from {region}, you need a {required_certificate}. {question}"
                         else:
                             # No special provisions apply
-                            state.response = "✅ No special provisions apply. Application complete!"
-                            state.stage = ConversationStage.COMPLETED
+                            state.response = "✅ No special provisions apply. Let's review your application!"
+                            state.stage = ConversationStage.SUMMARY
                         
                         return state
                     else:
@@ -2860,43 +2874,32 @@ Return only the JSON, no additional text:"""
         return state
 
     async def _completed_node(self, state: ConversationState) -> ConversationState:
-        """Completion node"""
+        """Completion node - outputs complete data for external processing"""
         state.stage = ConversationStage.COMPLETED
         
-        # Upload data to EFR database
-        upload_result = await self.upload_to_efr_database(state)
+        # Generate complete data output
+        complete_data = self.convert_to_efr_farmer_data(state)
         
-        if upload_result.get("success"):
-            farmer_id = upload_result.get("farmer_id", "Unknown")
-            state.response = f"""🎉 Congratulations! Your PM-KISAN application has been successfully submitted and stored in the database.
+        # Create comprehensive response with all data
+        state.response = f"""🎉 **PM-KISAN Application Complete!**
 
-📋 **Application Details:**
-• Farmer ID: {farmer_id}
-• Status: Submitted for processing
-• Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+📋 **Complete Application Data:**
+```json
+{json.dumps(complete_data, indent=2, default=str)}
+```
 
-✅ **Next Steps:**
-• Your application will be reviewed for eligibility
-• You will receive updates via SMS on your registered mobile number
-• Benefits will be transferred directly to your linked bank account
+✅ **Data Ready for Processing:**
+• All required fields collected
+• Special provisions identified
+• Exclusion criteria verified
+• Family information recorded
 
-Thank you for using the PM-KISAN application assistant!"""
-        else:
-            # Store data locally if EFR upload fails
-            farmer_data = self.convert_to_efr_farmer_data(state)
-            state.response = f"""🎉 Your PM-KISAN application data has been collected successfully!
+🔄 **Next Steps:**
+• Data will be uploaded to EFR database
+• Eligibility check will be performed
+• Results will be provided
 
-⚠️ **Note:** Database upload failed, but your data is saved locally.
-• Error: {upload_result.get('message', 'Unknown error')}
-• Your application data is ready for manual upload
-
-📋 **Collected Information Summary:**
-• Name: {farmer_data.get('name', 'N/A')}
-• Aadhaar: {farmer_data.get('aadhaar_number', 'N/A')}
-• State: {farmer_data.get('state', 'N/A')}
-• Land Size: {farmer_data.get('land_size_acres', 'N/A')} acres
-
-Please contact support for assistance with database upload."""
+**Application Status: READY FOR PROCESSING**"""
         
         return state
 
@@ -3104,7 +3107,7 @@ Please contact support for assistance with database upload."""
                 print(f"🔍 DEBUG: Family complete but still asking for more - returning END")
                 return "END"  # Still asking if they want to add more
             else:
-                print(f"�� DEBUG: Family done - all members complete and not asking for more, transitioning to EXCLUSION_CRITERIA")
+                print(f"🔍 DEBUG: Family done - all members complete and not asking for more, transitioning to EXCLUSION_CRITERIA")
                 return "EXCLUSION_CRITERIA"
         else:
             print(f"🔍 DEBUG: Family not done - incomplete members or no members yet, returning END")
@@ -3275,7 +3278,7 @@ Let's begin! What is your full name?"""
                     'region_special': state.special_provisions.get('region_special', 'none'),
                     'has_special_certificate': state.special_provisions.get('has_special_certificate', False),
                     'certificate_type': state.special_provisions.get('certificate_type'),
-                    'certificate_details': state.special_provisions.get('certificate_details', {})
+                    'special_provision_applies': state.special_provisions.get('region_special', 'none') != 'none'
                 }
             }
         
