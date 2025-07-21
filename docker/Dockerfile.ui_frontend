@@ -1,0 +1,8 @@
+FROM node:20
+
+WORKDIR /app
+COPY src/app/new_ui /app
+RUN npm install
+
+EXPOSE 3000
+CMD ["npm", "run", "dev"] 

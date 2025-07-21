@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:6
+    container_name: sanchalak_mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  lmstudio:
+    image: lmstudio-ai/lmstudio:latest
+    container_name: sanchalak_lmstudio
+    ports:
+      - "1234:1234"
+    environment:
+      - LLM_MODEL=Qwen2-57B-Instruct
+    # Add volume for model weights if needed
+
+  efr_server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.efr_server
+    container_name: sanchalak_efr_server
+    ports:
+      - "8001:8001"
+    depends_on:
+      - mongodb
+
+  scheme_server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.scheme_server
+    container_name: sanchalak_scheme_server
+    ports:
+      - "8002:8002"
+    depends_on:
+      - mongodb
+    environment:
+      - MONGODB_URL=mongodb://mongodb:27017
+    volumes:
+      - ./src/scheme_server/outputs/pm-kisan/REFERENCE_prolog_system.pl:/app/outputs/pm-kisan/REFERENCE_prolog_system.pl
+
+  schemabot:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.schemabot
+    container_name: sanchalak_schemabot
+    ports:
+      - "8003:8003"
+    depends_on:
+      - scheme_server
+      - efr_server
+      - lmstudio
+
+  ui_backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ui_backend
+    container_name: sanchalak_ui_backend
+    ports:
+      - "3001:3001"
+
+  ui_frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ui_frontend
+    container_name: sanchalak_ui_frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - ui_backend
+
+volumes:
+  mongo_data: 

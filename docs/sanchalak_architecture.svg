@@ -1,0 +1,216 @@
+<svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="1" dy="1" stdDeviation="2" flood-color="#000" flood-opacity="0.15"/>
+    </filter>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2563eb" />
+    </marker>
+    <marker id="return-arrow" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#dc2626" />
+    </marker>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1200" height="800" fill="#ffffff"/>
+  
+  <!-- Title -->
+  <text x="600" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="#1f2937">
+    Sanchalak - Three-Tier Architecture
+  </text>
+  
+  <!-- Tier Labels -->
+  <text x="30" y="130" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#6b7280" transform="rotate(-90 30 130)">
+    Presentation Tier
+  </text>
+  <text x="30" y="350" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#6b7280" transform="rotate(-90 30 350)">
+    Application Tier
+  </text>
+  <text x="30" y="600" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#6b7280" transform="rotate(-90 30 600)">
+    Data Tier
+  </text>
+  
+  <!-- Tier Separation Lines -->
+  <line x1="80" y1="200" x2="1120" y2="200" stroke="#e5e7eb" stroke-width="2" stroke-dasharray="5,5"/>
+  <line x1="80" y1="450" x2="1120" y2="450" stroke="#e5e7eb" stroke-width="2" stroke-dasharray="5,5"/>
+  
+  <!-- TIER 1: PRESENTATION LAYER -->
+  <rect x="400" y="80" width="400" height="100" rx="5" fill="#dbeafe" stroke="#2563eb" stroke-width="2" filter="url(#shadow)"/>
+  <text x="600" y="105" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#1f2937">
+    Frontend Server
+  </text>
+  <text x="420" y="125" font-family="Arial, sans-serif" font-size="12" fill="#374151">
+    • Audio Input/Output Interface
+  </text>
+  <text x="420" y="140" font-family="Arial, sans-serif" font-size="12" fill="#374151">
+    • Speech Transcription Service
+  </text>
+  <text x="420" y="155" font-family="Arial, sans-serif" font-size="12" fill="#374151">
+    • Language Translation Service
+  </text>
+  <text x="420" y="170" font-family="Arial, sans-serif" font-size="12" fill="#374151">
+    • User Interface Management
+  </text>
+  
+  <!-- TIER 2: APPLICATION LAYER -->
+  <rect x="150" y="250" width="900" height="160" rx="5" fill="#dcfce7" stroke="#16a34a" stroke-width="2" filter="url(#shadow)"/>
+  <text x="600" y="275" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#1f2937">
+    Schemabot (LangGraph Application Server)
+  </text>
+  <text x="600" y="295" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#6b7280">
+    Natural Language Processing &amp; Data Extraction Pipeline
+  </text>
+  
+  <!-- LangGraph Nodes in horizontal layout with more spacing -->
+  <rect x="180" y="320" width="140" height="70" rx="3" fill="#ffffff" stroke="#16a34a" stroke-width="1"/>
+  <text x="250" y="340" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#1f2937">
+    Node 1
+  </text>
+  <text x="250" y="355" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#6b7280">
+    Basic Info
+  </text>
+  <text x="250" y="370" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#6b7280">
+    Collection
+  </text>
+  
+  <rect x="350" y="320" width="140" height="70" rx="3" fill="#ffffff" stroke="#16a34a" stroke-width="1"/>
+  <text x="420" y="340" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#1f2937">
+    Node 2
+  </text>
+  <text x="420" y="355" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#6b7280">
+    Family Data
+  </text>
+  <text x="420" y="370" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#6b7280">
+    Collection
+  </text>
+  
+  <rect x="520" y="320" width="140" height="70" rx="3" fill="#ffffff" stroke="#16a34a" stroke-width="1"/>
+  <text x="590" y="340" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#1f2937">
+    Node 3
+  </text>
+  <text x="590" y="355" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#6b7280">
+    Exclusion
+  </text>
+  <text x="590" y="370" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#6b7280">
+    Principles
+  </text>
+  
+  <rect x="690" y="320" width="140" height="70" rx="3" fill="#ffffff" stroke="#16a34a" stroke-width="1"/>
+  <text x="760" y="340" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#1f2937">
+    Node 4
+  </text>
+  <text x="760" y="355" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#6b7280">
+    Special Info
+  </text>
+  <text x="760" y="370" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#6b7280">
+    Collection
+  </text>
+  
+  <rect x="860" y="320" width="140" height="70" rx="3" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+  <text x="930" y="340" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#1f2937">
+    Node 5
+  </text>
+  <text x="930" y="355" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#6b7280">
+    Summary &amp;
+  </text>
+  <text x="930" y="370" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#6b7280">
+    Processing
+  </text>
+  
+  <!-- Sequential arrows between nodes -->
+  <path d="M325 355 L345 355" stroke="#16a34a" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <path d="M495 355 L515 355" stroke="#16a34a" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <path d="M665 355 L685 355" stroke="#16a34a" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <path d="M835 355 L855 355" stroke="#16a34a" stroke-width="2" marker-end="url(#arrowhead)"/>
+  
+  <!-- TIER 3: DATA LAYER -->
+  
+  <!-- EFRDB Server -->
+  <rect x="200" y="500" width="300" height="140" rx="5" fill="#fef3c7" stroke="#f59e0b" stroke-width="2" filter="url(#shadow)"/>
+  <text x="350" y="525" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#1f2937">
+    EFRDB Server
+  </text>
+  <text x="350" y="545" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#6b7280">
+    Electronic Farmer Records Database
+  </text>
+  <text x="220" y="570" font-family="Arial, sans-serif" font-size="12" fill="#374151">
+    • Farmer profile storage
+  </text>
+  <text x="220" y="585" font-family="Arial, sans-serif" font-size="12" fill="#374151">
+    • Family member data repository
+  </text>
+  <text x="220" y="600" font-family="Arial, sans-serif" font-size="12" fill="#374151">
+    • Exclusion principles database
+  </text>
+  <text x="220" y="615" font-family="Arial, sans-serif" font-size="12" fill="#374151">
+    • Special data storage
+  </text>
+  
+  <!-- Scheme Server -->
+  <rect x="700" y="500" width="300" height="140" rx="5" fill="#f3e8ff" stroke="#8b5cf6" stroke-width="2" filter="url(#shadow)"/>
+  <text x="850" y="525" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#1f2937">
+    Scheme Server
+  </text>
+  <text x="850" y="545" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#6b7280">
+    Government Scheme Management
+  </text>
+  <text x="720" y="570" font-family="Arial, sans-serif" font-size="12" fill="#374151">
+    • Scheme definitions (PM-Kisan, etc.)
+  </text>
+  <text x="720" y="585" font-family="Arial, sans-serif" font-size="12" fill="#374151">
+    • CRUD operations
+  </text>
+  <text x="720" y="600" font-family="Arial, sans-serif" font-size="12" fill="#374151">
+    • Eligibility rule engine
+  </text>
+  <text x="720" y="615" font-family="Arial, sans-serif" font-size="12" fill="#374151">
+    • Rule validation logic
+  </text>
+  
+  <!-- Data layer connection -->
+  <path d="M510 570 L690 570" stroke="#6b7280" stroke-width="2" stroke-dasharray="3,3"/>
+  <text x="600" y="565" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#6b7280">
+    Data Exchange
+  </text>
+  
+  <!-- CLEAN FLOW ARROWS - NO OVERLAPS -->
+  
+  <!-- Frontend to Schemabot - Left side -->
+  <path d="M120 130 L120 330 L140 330" stroke="#2563eb" stroke-width="3" marker-end="url(#arrowhead)" fill="none"/>
+  <text x="100" y="230" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#2563eb" font-weight="bold" transform="rotate(-90 100 230)">
+    Natural Language Input
+  </text>
+  
+  <!-- Schemabot to Data Layer - Left side -->
+  <path d="M350 420 L350 490" stroke="#2563eb" stroke-width="3" marker-end="url(#arrowhead)"/>
+  <text x="330" y="455" font-family="Arial, sans-serif" font-size="11" fill="#2563eb" font-weight="bold">
+    Store Data
+  </text>
+  
+  <!-- Data Layer trigger - Between servers -->
+  <path d="M850 450 L850 420 L930 420 L930 500" stroke="#2563eb" stroke-width="2" marker-end="url(#arrowhead)" fill="none"/>
+  <text x="890" y="440" font-family="Arial, sans-serif" font-size="11" fill="#2563eb">
+    Trigger Eligibility Check
+  </text>
+  
+  <!-- Return path - Right side -->
+  <path d="M1080 570 L1080 130" stroke="#dc2626" stroke-width="3" marker-end="url(#return-arrow)" stroke-dasharray="8,4"/>
+  <text x="1100" y="350" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#dc2626" font-weight="bold" transform="rotate(90 1100 350)">
+    Eligibility Result
+  </text>
+  
+  <!-- Architecture Description -->
+  <rect x="100" y="700" width="1000" height="80" rx="5" fill="#f8fafc" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="120" y="720" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#1f2937">
+    Three-Tier Architecture Flow:
+  </text>
+  <text x="120" y="740" font-family="Arial, sans-serif" font-size="12" fill="#374151">
+    <tspan font-weight="bold">Tier 1:</tspan> Frontend handles audio I/O, transcription, translation → Natural language interaction with user
+  </text>
+  <text x="120" y="755" font-family="Arial, sans-serif" font-size="12" fill="#374151">
+    <tspan font-weight="bold">Tier 2:</tspan> Schemabot processes through 5 LangGraph nodes → Extracts structured data using natural language processing
+  </text>
+  <text x="120" y="770" font-family="Arial, sans-serif" font-size="12" fill="#374151">
+    <tspan font-weight="bold">Tier 3:</tspan> EFRDB stores farmer data, Scheme Server validates eligibility rules → Returns eligibility result to user
+  </text>
+</svg>

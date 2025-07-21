@@ -1,45 +1,32 @@
 #!/bin/bash
 
-# Sanchalak Stop Script
-# Stops all servers: EFR, Scheme, Chat API, and Frontend
+# Get the directory of this script, regardless of where it's called from
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$SCRIPT_DIR"
 
-echo "🛑 Stopping SANCHALAK Services..."
-echo "================================="
-
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
-
-# Function to print colored output
 print_status() {
-    echo -e "${2}${1}${NC}"
+    echo -e "$1"
 }
 
-# Function to kill process on port
+# Function to kill process on a port
 kill_port() {
-    if lsof -ti:$1 > /dev/null 2>&1; then
-        print_status "🔄 Stopping service on port $1..." $YELLOW
-        lsof -ti:$1 | xargs kill -9 2>/dev/null || true
-        sleep 1
-        print_status "✅ Service on port $1 stopped" $GREEN
+    PORT=$1
+    PID=$(lsof -ti:$PORT)
+    if [ ! -z "$PID" ]; then
+        print_status "🛑 Killing process on port $PORT (PID: $PID)..."
+        kill -9 $PID 2>/dev/null || true
     else
-        print_status "ℹ️  No service running on port $1" $YELLOW
+        print_status "✅ No process found on port $PORT."
     fi
 }
 
-# Stop all services
-kill_port 3000  # Frontend
-kill_port 8003  # Chat API
-kill_port 8002  # Scheme Server
+print_status "🛑 Stopping all Sanchalak services..."
+
+# Kill all relevant ports
 kill_port 8001  # EFR Server
+kill_port 8002  # Scheme Server
+kill_port 8003  # Schemabot GraphQL
+kill_port 3001  # New UI Backend
+kill_port 3000  # New UI Frontend
 
-# Clean up PID files if they exist
-if [ -d "logs" ]; then
-    rm -f logs/*.pid
-    print_status "🧹 Cleaned up PID files" $GREEN
-fi
-
-echo ""
-print_status "✅ All SANCHALAK services stopped!" $GREEN 
+print_status "✅ All services stopped." 
